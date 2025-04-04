@@ -1,39 +1,31 @@
 #pragma once
 
-#include <SFML/Graphics.hpp>
-#include "Grid.h"
+#include "stdafx.h"
+#include "Scene.h"
 
-/*
-* Class that acts as the game engine
-* Wrapper class.
-*/
 class Game
 {
 private:
-	// Variables
-	// Window
-	sf::Vector2i resolution;
-	sf::RenderWindow* window;
-	sf::View view;
-
-	// Game objects
-	Grid grid;
-
-	// Private functions
-	void initVariables();
-	void initWindow();
+	sf::RenderWindow window;
+	sf::Event event;
 	sf::View getLetterboxView(sf::View view, int windowWidth, int windowHeight);
+	sf::View view;
+	sf::Vector2i resolution = sf::Vector2i(256, 224);
+
+	Scene* currentScene;
+
+	void initWindow();
+	void initScene();
+
 public:
-	// Constructors
 	Game();
-	~Game();
+	virtual ~Game();
 
-	// Accessors
-	const bool getWindowIsOpen() const;
-
-
-	// Functions
-	void pollEvents();
+	void updateScene();
 	void update();
+	void renderScene();
 	void render();
+
+	const sf::RenderWindow& getWindow() const;
 };
+

@@ -1,19 +1,21 @@
+#pragma once
 #include "stdafx.h"
-class Grid
+#include "Grid.h"
+class Scene
 {
 private:
 	sf::Sprite backgroundSprite;
 	sf::Texture backgroundTexture;
 
-	sf::Sprite blockSprite;
-	sf::Texture blockTexture;
-
 	void initBackgroundTexture();
 	void initBackgroundSprite();
+
+	Grid* grid;
+
 public:
-	Grid();
-	~Grid();
-	void updateBlock();
+	Scene();
+	~Scene();
 	void update();
 	void render(sf::RenderTarget& target);
 };
+

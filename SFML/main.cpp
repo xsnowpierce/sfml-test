@@ -1,19 +1,16 @@
-#include <SFML/Graphics.hpp>
+#include "stdafx.h"
 #include "Game.h"
-
 
 int main()
 {
-    // init game
+    srand(static_cast<unsigned>(time(0)));
+
     Game game;
-    
 
-    while (game.getWindowIsOpen())
-    {
-        // Update
+    while (game.getWindow().isOpen()) {
         game.update();
-
-        // Render
         game.render();
     }
+
+    return 0;
 }
