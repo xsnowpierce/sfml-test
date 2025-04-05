@@ -13,6 +13,7 @@ void Game::initWindow()
 
 void Game::initScene()
 {
+    Block::initTexture();
     this->currentScene = new Scene();
 }
 

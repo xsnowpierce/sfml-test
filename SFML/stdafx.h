@@ -2,6 +2,8 @@
 #include<ctime>
 #include<iostream>
 #include<time.h>
+#include <list>
+#include <unordered_map>
 
 //SFML
 #include <SFML/Graphics.hpp>
