@@ -17,5 +17,6 @@ public:
 	~Scene();
 	void update();
 	void render(sf::RenderTarget& target);
+	void pollEvent(sf::Event event);
 };
 

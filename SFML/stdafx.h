@@ -4,6 +4,7 @@
 #include<time.h>
 #include <list>
 #include <unordered_map>
+#include <random>
 
 //SFML
 #include <SFML/Graphics.hpp>

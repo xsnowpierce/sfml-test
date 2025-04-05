@@ -37,3 +37,8 @@ void Scene::render(sf::RenderTarget& target)
     target.draw(this->backgroundSprite);
     this->grid->render(target);
 }
+
+void Scene::pollEvent(sf::Event event)
+{
+    this->grid->pollEvent(event);
+}

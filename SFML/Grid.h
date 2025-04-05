@@ -17,30 +17,45 @@ struct Vector2fEqual {
 class Grid
 {
 private:
+	std::mt19937 gen;
+
 	sf::Sprite backgroundSprite;
 	sf::Texture backgroundTexture;
 
 	sf::Sprite blockSprite;
 	sf::Texture blockTexture;
 
-	std::list<Block> blocks;
-	std::unordered_map<sf::Vector2f, Block*, Vector2fHash, Vector2fEqual> blockMap;
-	int block_data[6][12];
+	std::unique_ptr<Block> grid[6][12];
 
 	void initBackgroundTexture();
 	void initBackgroundSprite();
 
-	void spawn_block(BLOCK_TYPE type, sf::Vector2f grid_spawn_position);
+	void start_round();
+	BLOCK_TYPE pick_random_block(bool other_block_is_default);
+	bool spawn_block(BLOCK_TYPE type, sf::Vector2f grid_spawn_position, bool isLocked);
 
-	float time_until_pushdown = 0.5f;
+	int get_random_int_range(int min, int max);
+
+	const float time_until_pushdown = 0.5f;
 	float current_time_until_pushdown = 0.5f;
+	const float time_until_pushdown_increment = 0.01666666666f;
 
 	void pushdown_block();
+
+	// input
+	bool input_left;
+	bool input_right;
+	bool input_rotate;
+	bool input_down;
+
+	void query_inputs();
 public:
 	Grid();
 	~Grid();
 	void update();
 	void render(sf::RenderTarget &target);
+	void pollEvent(sf::Event event);
+
 	static sf::Vector2f get_screen_position_from_grid_position(sf::Vector2f grid_position);
 	static sf::Vector2f get_grid_position_from_screen_position(sf::Vector2f screen_position);
 	static const int grid_bounds_x = 6;

@@ -66,6 +66,21 @@ sf::Vector2f Block::get_current_grid_position()
 	return this->grid_position;
 }
 
+bool Block::getPositionLocked()
+{
+	return this->is_position_locked;
+}
+
+void Block::setPositionLocked(bool lockPosition)
+{
+	this->is_position_locked = lockPosition;
+}
+
+BLOCK_TYPE Block::get_block_type()
+{
+	return this->block_type;
+}
+
 void Block::initTexture()
 {
 	if (!texture.loadFromFile("images/sprite_sheet.png")) {
@@ -88,4 +103,22 @@ int Block::get_type_as_int(BLOCK_TYPE type)
 		return 4;
 	}
 	return 0;
+}
+
+BLOCK_TYPE Block::get_int_as_type(int value)
+{
+	switch (value) {
+	case(0):
+		return BLOCK_TYPE::DEFAULT;
+	case(1):
+		return BLOCK_TYPE::BOMB;
+	case(2):
+		return BLOCK_TYPE::PENGUIN;
+	case(3):
+		return BLOCK_TYPE::SEAL;
+	case(4):
+		return BLOCK_TYPE::BIRD;
+	default:
+		return BLOCK_TYPE::DEFAULT;
+	}
 }

@@ -38,6 +38,7 @@ void Game::update()
     // polling window events
     while (this->window.pollEvent(this->event))
     {
+        this->currentScene->pollEvent(event);
         if (this->event.type == sf::Event::Closed)
             window.close();
 
