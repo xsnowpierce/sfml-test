@@ -4,7 +4,7 @@
 struct Vector2fHash {
 	std::size_t operator()(const sf::Vector2f& v) const {
 		std::hash<float> hasher;
-		return hasher(v.x) ^ (hasher(v.y) << 1);  // Simple hash combining
+		return hasher(v.x) ^ (hasher(v.y) << 1);
 	}
 };
 
@@ -17,7 +17,7 @@ struct Vector2fEqual {
 class Grid
 {
 private:
-	std::mt19937 gen;
+	std::mt19937 gen; // rng engine
 
 	sf::Sprite backgroundSprite;
 	sf::Texture backgroundTexture;
@@ -27,12 +27,15 @@ private:
 
 	std::unique_ptr<Block> grid[6][12];
 
+	Block* main_block;
+	Block* child_block;
+
 	void initBackgroundTexture();
 	void initBackgroundSprite();
 
 	void start_round();
 	BLOCK_TYPE pick_random_block(bool other_block_is_default);
-	bool spawn_block(BLOCK_TYPE type, sf::Vector2f grid_spawn_position, bool isLocked);
+	Block* spawn_block(BLOCK_TYPE type, sf::Vector2f grid_spawn_position, bool isLocked);
 
 	int get_random_int_range(int min, int max);
 
@@ -41,6 +44,7 @@ private:
 	const float time_until_pushdown_increment = 0.01666666666f;
 
 	void pushdown_block();
+	void check_blocks();
 
 	// input
 	bool input_left;
@@ -60,4 +64,5 @@ public:
 	static sf::Vector2f get_grid_position_from_screen_position(sf::Vector2f screen_position);
 	static const int grid_bounds_x = 6;
 	static const int grid_bounds_y = 12;
+	static const int grid_cell_size = 16;
 };

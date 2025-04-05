@@ -36,32 +36,52 @@ BLOCK_TYPE Grid::pick_random_block(bool other_block_is_default) {
 	return valid_types[get_random_int_range(other_block_is_default ? 1 : 0, 3)];
 }
 
-bool Grid::spawn_block(BLOCK_TYPE type, sf::Vector2f grid_pos, bool isLocked) {
+Block* Grid::spawn_block(BLOCK_TYPE type, sf::Vector2f grid_pos, bool isLocked) {
 	int x = static_cast<int>(grid_pos.x);
 	int y = static_cast<int>(grid_pos.y);
 
-	if (grid[x][y]) return false;
+	if (grid[x][y]) return nullptr;
 
 	auto block = std::make_unique<Block>(type, get_screen_position_from_grid_position(grid_pos));
 	block->setPositionLocked(isLocked);
-	grid[x][y] = std::move(block);
 
-	return true;
+	Block* raw_ptr = block.get(); // Save raw pointer before moving
+	grid[x][y] = std::move(block); // Store it in grid
+
+	return raw_ptr; // Return the pointer to the caller
 }
 
+
 void Grid::start_round() {
+	//spawn_block(BLOCK_TYPE::DEFAULT, { 2.f, 11.f }, true);
+
 	BLOCK_TYPE type2 = pick_random_block(false);
 	BLOCK_TYPE type1 = pick_random_block(type2 == BLOCK_TYPE::DEFAULT);
 
-	if (!spawn_block(type1, { 2.f, 0.f }, false) || !spawn_block(type2, { 3.f, 0.f }, false)) {
-		std::cout << "game lost." << std::endl;
+	this->main_block = spawn_block(type1, { 2.f, 0.f }, false);
+	this->child_block = spawn_block(type2, { 3.f, 0.f }, false);
+
+	if (main_block == nullptr or child_block == nullptr) {
+		std::cout << "Game lost." << std::endl;
 		return;
 	}
 }
 
 void Grid::pushdown_block() {
-	bool newRoundStarted = false;
 
+	// make sure blocks that can't move are locked
+	//this->check_blocks();
+
+	// since we just verified, we can assume that the blocks can move down
+	if (main_block != nullptr && main_block->getPositionLocked() == false) {
+		main_block->push_down();
+	}
+	if (child_block != nullptr && child_block->getPositionLocked() == false) {
+		child_block->push_down();
+	}
+
+
+	/*
 	for (int x = 0; x < grid_bounds_x; ++x) {
 		for (int y = grid_bounds_y - 1; y >= 0; --y) {
 			auto& block = grid[x][y];
@@ -74,14 +94,47 @@ void Grid::pushdown_block() {
 				}
 				else {
 					block->setPositionLocked(true);
-					newRoundStarted = true;
 				}
 			}
 		}
 	}
+	*/
 
-	if (newRoundStarted) {
-		start_round();
+	// check to see if blocks can be made locked or not
+	this->check_blocks();
+}
+
+void Grid::check_blocks()
+{
+	if (main_block != nullptr) {
+		if (grid[(int)main_block->get_current_grid_position().x][(int)main_block->get_current_grid_position().y + 1]
+			|| (int) main_block->get_current_grid_position().y == grid_bounds_y - 1) {
+			// grid has spot below block
+			main_block->setPositionLocked(true);
+			grid[(int)main_block->get_current_grid_position().x][(int)main_block->get_current_grid_position().y] = std::move(grid[2][0]);
+		}
+
+		if (main_block->getPositionLocked()) {
+			main_block = nullptr;
+		}
+	}
+	
+	if (child_block != nullptr) {
+		if (grid[(int)child_block->get_current_grid_position().x][(int)child_block->get_current_grid_position().y + 1]
+			|| (int) child_block->get_current_grid_position().y == grid_bounds_y - 1) {
+			// grid has spot below block
+			child_block->setPositionLocked(true);
+			grid[(int)child_block->get_current_grid_position().x][(int)child_block->get_current_grid_position().y] = std::move(grid[3][0]);
+
+		}
+
+		if (child_block->getPositionLocked()) {
+			child_block = nullptr;
+		}
+	}
+
+	if (main_block == nullptr && child_block == nullptr) {
+		this->start_round();
 	}
 }
 
@@ -100,8 +153,22 @@ void Grid::update() {
 		}
 	}
 
+	std::cout << "-------" << std::endl;
+	for (int i = 0; i < 12; ++i) {
+		for (int j = 0; j < 6; ++j) {
+			if (grid[j][i] != nullptr) {
+				std::cout << Block::get_type_as_int(grid[j][i]->get_block_type()) << " ";
+			}
+			else {
+				std::cout << 0 << " ";
+			}
+		}
+		std::cout << std::endl;
+	}
+	std::cout << "-------" << std::endl;
+
 	float increment = time_until_pushdown_increment;
-	if (input_down) increment *= 3;
+	if (input_down || main_block == nullptr || child_block == nullptr) increment *= 3;
 
 	current_time_until_pushdown -= increment;
 	if (current_time_until_pushdown <= 0.f) {
@@ -141,7 +208,39 @@ void Grid::pollEvent(sf::Event event) {
 }
 
 void Grid::query_inputs() {
-	// Placeholder for future input handling (move, rotate, etc.)
+	if (main_block == nullptr || child_block == nullptr) {
+		return;
+	}
+
+	if (input_left) {
+		if ((int)main_block->get_current_grid_position().x - 1 < 0
+			|| (int)child_block->get_current_grid_position().x - 1 < 0
+			|| grid[(int)main_block->get_current_grid_position().x - 1][(int)main_block->get_current_grid_position().y] != nullptr
+			|| grid[(int)child_block->get_current_grid_position().x - 1][(int)child_block->get_current_grid_position().y] != nullptr) {
+			// can't move left
+			return;
+		}
+
+		main_block->move_block(-1, 0);
+		child_block->move_block(-1, 0);
+	}
+
+	if (input_right) {
+		if ((int) main_block->get_current_grid_position().x + 1 >= Grid::grid_bounds_x 
+			|| (int) child_block->get_current_grid_position().x + 1 >= Grid::grid_bounds_x
+			|| grid[(int)main_block->get_current_grid_position().x + 1][(int)main_block->get_current_grid_position().y] != nullptr
+			|| grid[(int)child_block->get_current_grid_position().x + 1][(int)child_block->get_current_grid_position().y] != nullptr) {
+			// can't move left
+			return;
+		}
+
+		main_block->move_block(1, 0);
+		child_block->move_block(1, 0);
+	}
+
+	if (input_rotate) {
+
+	}
 }
 
 sf::Vector2f Grid::get_screen_position_from_grid_position(sf::Vector2f grid_position) {

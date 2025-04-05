@@ -34,6 +34,13 @@ void Block::push_down()
 	this->grid_position = Grid::get_grid_position_from_screen_position(this->sprite.getPosition());
 }
 
+void Block::move_block(int x, int y)
+{
+	sf::Vector2f movePosition(x * Grid::grid_cell_size, y * Grid::grid_cell_size);
+	this->sprite.move(movePosition);
+	this->grid_position = Grid::get_grid_position_from_screen_position(this->sprite.getPosition());
+}
+
 void Block::set_position(float x, float y)
 {
 	this->sprite.setPosition(x, y);
@@ -92,15 +99,15 @@ int Block::get_type_as_int(BLOCK_TYPE type)
 {
 	switch (type) {
 	case(BLOCK_TYPE::DEFAULT):
-		return 0;
-	case(BLOCK_TYPE::BOMB):
 		return 1;
-	case(BLOCK_TYPE::PENGUIN):
+	case(BLOCK_TYPE::BOMB):
 		return 2;
-	case(BLOCK_TYPE::SEAL):
+	case(BLOCK_TYPE::PENGUIN):
 		return 3;
-	case(BLOCK_TYPE::BIRD):
+	case(BLOCK_TYPE::SEAL):
 		return 4;
+	case(BLOCK_TYPE::BIRD):
+		return 5;
 	}
 	return 0;
 }
@@ -108,17 +115,17 @@ int Block::get_type_as_int(BLOCK_TYPE type)
 BLOCK_TYPE Block::get_int_as_type(int value)
 {
 	switch (value) {
-	case(0):
-		return BLOCK_TYPE::DEFAULT;
 	case(1):
-		return BLOCK_TYPE::BOMB;
+		return BLOCK_TYPE::DEFAULT;
 	case(2):
-		return BLOCK_TYPE::PENGUIN;
+		return BLOCK_TYPE::BOMB;
 	case(3):
-		return BLOCK_TYPE::SEAL;
+		return BLOCK_TYPE::PENGUIN;
 	case(4):
+		return BLOCK_TYPE::SEAL;
+	case(5):
 		return BLOCK_TYPE::BIRD;
 	default:
-		return BLOCK_TYPE::DEFAULT;
+		return BLOCK_TYPE::EMPTY;
 	}
 }

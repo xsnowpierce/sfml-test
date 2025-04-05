@@ -13,6 +13,7 @@ private:
 	bool is_position_locked;
 public:
 	void push_down();
+	void move_block(int x, int y);
 	void set_position(float x, float y);
 	void update();
 	void render(sf::RenderTarget &target);
