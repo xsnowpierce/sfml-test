@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Block.h"
 
+// do i even need these anymore?...
 struct Vector2fHash {
 	std::size_t operator()(const sf::Vector2f& v) const {
 		std::hash<float> hasher;
@@ -17,6 +18,19 @@ struct Vector2fEqual {
 class Grid
 {
 private:
+	/// <summary>
+	/// The current state of the game.
+	/// </summary>
+	enum GAME_STATE {
+		NEW_ROUND,
+		PLAYER_BLOCK_FALLING,
+		SPAWNING_NEW_BOTTOM_ROW,
+		PUSHING_UP_BLOCKS,
+		GAME_END
+	};
+
+	GAME_STATE current_game_state = Grid::GAME_STATE::NEW_ROUND;
+
 	std::mt19937 gen; // rng engine
 
 	sf::Sprite backgroundSprite;
@@ -43,7 +57,11 @@ private:
 	const float time_until_pushdown = 0.5f;
 	float current_time_until_pushdown = 0.5f;
 	const float time_until_pushdown_increment = 0.01666666666f;
+
 	int current_rotation_index = 0;
+
+	float blocks_locked_waiting_time = 0.2f;
+	float current_blocks_locked_waiting_time;
 
 	std::vector<sf::Vector2f> rotation_offsets = {
 		sf::Vector2f(-1, 0), // 0° (left of main block)
@@ -54,7 +72,6 @@ private:
 
 	void pushdown_block();
 	void check_blocks();
-	void player_blocks_finished();
 	void pushup_blocks();
 	void spawn_bottom_row();
 
@@ -82,4 +99,5 @@ public:
 	static const int grid_bounds_x = 6;
 	static const int grid_bounds_y = 12;
 	static const int grid_cell_size = 16;
+	const float single_frame_value = 0.01666666666f;
 };

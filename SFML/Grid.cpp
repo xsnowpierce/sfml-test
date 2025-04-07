@@ -4,11 +4,13 @@
 Grid::Grid() : gen(std::random_device{}()) {
 	initBackgroundTexture();
 	initBackgroundSprite();
-	start_round();
 }
 
 Grid::~Grid() {}
 
+/// <summary>
+/// Initialises the texture used in the background of the scene.
+/// </summary>
 void Grid::initBackgroundTexture() {
 	if (!backgroundTexture.loadFromFile("images/grid_outline.png")) {
 		std::cout << "ERROR: Couldn't load grid image." << std::endl;
@@ -19,16 +21,32 @@ void Grid::initBackgroundTexture() {
 	}
 }
 
+/// <summary>
+/// Uses the initialised texture called in initBackgroundTexture()
+/// and applies it to a sprite.
+/// </summary>
 void Grid::initBackgroundSprite() {
 	backgroundSprite.setTexture(backgroundTexture);
 	backgroundSprite.setPosition(64.f, 18.f);
 }
 
+/// <summary>
+/// Generates a random number within a range.
+/// </summary>
+/// <param name="min">The lower bounds of the RNG.</param>
+/// <param name="max">The upper bounds of the RNG.</param>
+/// <returns>A random number between min and max.</returns>
 int Grid::get_random_int_range(int min, int max) {
 	std::uniform_int_distribution<> distr(min, max);
 	return distr(gen);
 }
 
+/// <summary>
+/// Picks a random block for use in creating new player blocks.
+/// It makes it so that if the other block is DEFAULT, the other one can't be too.
+/// </summary>
+/// <param name="other_block_is_default">Whether the other block spawned is a DEFAULT block.</param>
+/// <returns>A random block type that isn't a dupe if the other is default.</returns>
 BLOCK_TYPE Grid::pick_random_block(bool other_block_is_default) {
 	static const BLOCK_TYPE valid_types[4] = {
 		BLOCK_TYPE::DEFAULT, BLOCK_TYPE::PENGUIN, BLOCK_TYPE::SEAL, BLOCK_TYPE::BIRD
@@ -36,6 +54,13 @@ BLOCK_TYPE Grid::pick_random_block(bool other_block_is_default) {
 	return valid_types[get_random_int_range(other_block_is_default ? 1 : 0, 3)];
 }
 
+/// <summary>
+/// Spawns a block.
+/// </summary>
+/// <param name="type">The type of block to spawn.</param>
+/// <param name="grid_pos">The grid position to set the spawned block to.</param>
+/// <param name="isLocked">Whether or not the block will have postitionLocked set.</param>
+/// <returns>A pointer to the block created.</returns>
 Block* Grid::spawn_block(BLOCK_TYPE type, sf::Vector2f grid_pos, bool isLocked) {
 	int x = static_cast<int>(grid_pos.x);
 	int y = static_cast<int>(grid_pos.y);
@@ -51,7 +76,10 @@ Block* Grid::spawn_block(BLOCK_TYPE type, sf::Vector2f grid_pos, bool isLocked) 
 	return raw_ptr; // Return the pointer to the caller
 }
 
-
+/// <summary>
+/// Function to start the next round. Calls for new blocks to be spawned, checks if the game
+/// is GAME_END, and sets the game state to either PLAYER_BLOCK_FALLING or GAME_END.
+/// </summary>
 void Grid::start_round() {
 	//spawn_block(BLOCK_TYPE::DEFAULT, { 2.f, 11.f }, true);
 
@@ -61,12 +89,19 @@ void Grid::start_round() {
 	this->main_block = spawn_block(type1, { 2.f, 0.f }, false);
 	this->child_block = spawn_block(type2, { 3.f, 0.f }, false);
 
+	this->current_game_state = Grid::GAME_STATE::PLAYER_BLOCK_FALLING;
+
 	if (main_block == nullptr or child_block == nullptr) {
 		std::cout << "Game lost." << std::endl;
+		this->current_game_state == Grid::GAME_STATE::GAME_END;
 		return;
 	}
 }
 
+/// <summary>
+/// Makes the player blocks(child and main) move downwards.
+/// The blocks are checked before and after moving to ensure no clipping happens.
+/// </summary>
 void Grid::pushdown_block() {
 	/* check blocks before moving to make sure that if there is a block below another, 
 		the block below will be able to be locked before the block above it moves down.
@@ -83,6 +118,10 @@ void Grid::pushdown_block() {
 	this->check_blocks();
 }
 
+/// <summary>
+/// Checks the current status of the main and child block as to whether they should be locked in position.
+/// If both blocks have been locked, this function will instead set the game_state to SPAWNING_NEW_BOTTOM_ROW.
+/// </summary>
 void Grid::check_blocks()
 {
 	if (main_block != nullptr) {
@@ -113,17 +152,13 @@ void Grid::check_blocks()
 	}
 
 	if (main_block == nullptr && child_block == nullptr) {
-		this->player_blocks_finished();
+		current_game_state = Grid::GAME_STATE::SPAWNING_NEW_BOTTOM_ROW;
 	}
 }
 
-void Grid::player_blocks_finished()
-{
-	this->spawn_bottom_row();
-	this->pushup_blocks();
-	this->start_round();
-}
-
+/// <summary>
+/// Pushes all the blocks upwards one grid cell.
+/// </summary>
 void Grid::pushup_blocks()
 {
 	for (int i = 0; i < 6; ++i) {
@@ -147,6 +182,11 @@ void Grid::pushup_blocks()
 	}
 }
 
+/// <summary>
+/// Spawns a new row of blocks at the bottom row.
+/// This function will never create a match, as it checks for the blocks 
+/// beside and above it before doing so, to ensure a unique block.
+/// </summary>
 void Grid::spawn_bottom_row()
 {
 	// clear the new_grid_line array
@@ -229,15 +269,12 @@ void Grid::spawn_bottom_row()
 	}
 }
 
+/// <summary>
+/// Called every frame.
+/// </summary>
 void Grid::update() {
-	input_down = sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
 
 	query_inputs();
-
-	input_left = false;
-	input_right = false;
-	input_rotate_right = false;
-	input_rotate_left = false;
 
 	for (int x = 0; x < grid_bounds_x; ++x) {
 		for (int y = 0; y < grid_bounds_y; ++y) {
@@ -246,17 +283,49 @@ void Grid::update() {
 	}
 
 	//this->print_debug_array();
+	std::cout << current_game_state << std::endl;
 
-	float increment = time_until_pushdown_increment;
-	if (input_down || main_block == nullptr || child_block == nullptr) increment *= 3;
+	if (current_game_state == Grid::GAME_STATE::NEW_ROUND) {
 
-	current_time_until_pushdown -= increment;
-	if (current_time_until_pushdown <= 0.f) {
+		// reset variables
 		current_time_until_pushdown = time_until_pushdown;
-		pushdown_block();
+		current_blocks_locked_waiting_time = blocks_locked_waiting_time;
+		this->start_round();
+	}
+
+	else if (current_game_state == Grid::GAME_STATE::PLAYER_BLOCK_FALLING) {
+		float increment = time_until_pushdown_increment;
+		if (input_down || main_block == nullptr || child_block == nullptr) increment *= 3;
+
+		current_time_until_pushdown -= increment;
+		if (current_time_until_pushdown <= 0.f) {
+			current_time_until_pushdown = time_until_pushdown;
+			pushdown_block();
+		}
+	}
+
+	else if (current_game_state == Grid::GAME_STATE::SPAWNING_NEW_BOTTOM_ROW) {
+
+		if (current_blocks_locked_waiting_time > 0.f) {
+			current_blocks_locked_waiting_time -= single_frame_value;
+			std::cout << current_blocks_locked_waiting_time << std::endl;
+			return;
+		}
+
+		this->spawn_bottom_row();
+		this->current_game_state = Grid::GAME_STATE::PUSHING_UP_BLOCKS;
+	}
+
+	else if (current_game_state == Grid::GAME_STATE::PUSHING_UP_BLOCKS) {
+		this->pushup_blocks();
+		this->current_game_state = Grid::GAME_STATE::NEW_ROUND;
 	}
 }
 
+/// <summary>
+/// Render function.
+/// </summary>
+/// <param name="target">The target to display to.</param>
 void Grid::render(sf::RenderTarget& target) {
 	target.draw(backgroundSprite);
 	for (int x = 0; x < grid_bounds_x; ++x) {
@@ -291,10 +360,15 @@ void Grid::pollEvent(sf::Event event) {
 	}
 }
 
+/// <summary>
+/// Input handling method.
+/// </summary>
 void Grid::query_inputs() {
 	if (main_block == nullptr || child_block == nullptr) {
 		return;
 	}
+
+	input_down = sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
 
 	if (input_left) {
 		if ((int)main_block->get_current_grid_position().x - 1 < 0
@@ -330,8 +404,19 @@ void Grid::query_inputs() {
 	else if (input_rotate_left) {
 		this->rotate_block(-1);
 	}
+
+	input_left = false;
+	input_right = false;
+	input_rotate_right = false;
+	input_rotate_left = false;
 }
 
+/// <summary>
+/// Calculates the next position the child should be in given the direction.
+/// </summary>
+/// <param name="direction">The direction to rotate in: -1 or 1, for CCW or CW rotations.</param>
+/// <param name="current_offset">The current grid location relative to the main block.</param>
+/// <returns>The grid position the child block should move to next.</returns>
 sf::Vector2f Grid::get_next_child_rotate_position(int direction, sf::Vector2f current_offset)
 {
 	if (current_offset == sf::Vector2f(1.f, 0.f)) {
@@ -377,7 +462,10 @@ sf::Vector2f Grid::get_next_child_rotate_position(int direction, sf::Vector2f cu
 	return sf::Vector2f(1.f, 0.f); // default to right
 }
 
-
+/// <summary>
+/// Rotates the child block to a possible direction.
+/// </summary>
+/// <param name="direction">The direction, -1 or 1, to rotate in for CCW or CW rotations.</param>
 void Grid::rotate_block(int direction)
 {
 	sf::Vector2f current_child_offset(this->child_block->get_current_grid_position() - this->main_block->get_current_grid_position());
@@ -410,6 +498,10 @@ void Grid::rotate_block(int direction)
 	this->child_block->move_block(current_child_offset);
 }
 
+/// <summary>
+/// Prints the current status of the grid[][] array. 
+/// Prints numbers of the block types, or 0 if the cell is empty.
+/// </summary>
 void Grid::print_debug_array()
 {
 	std::string debug;
@@ -429,6 +521,11 @@ void Grid::print_debug_array()
 	std::cout << debug;
 }
 
+/// <summary>
+/// Calculates the screen coordinate position from a given grid position.
+/// </summary>
+/// <param name="grid_position">The grid position to convert. (eg. 1,4)</param>
+/// <returns>The converted screen position (eg. 124, -331)</returns>
 sf::Vector2f Grid::get_screen_position_from_grid_position(sf::Vector2f grid_position) {
 	sf::Vector2f gridStartPosition(64.f, 18.f);
 	sf::Vector2f offset(16.f, 6.f);
@@ -437,6 +534,11 @@ sf::Vector2f Grid::get_screen_position_from_grid_position(sf::Vector2f grid_posi
 	return sf::Vector2f(grid_position.x * sprite_size + offset.x, grid_position.y * sprite_size + offset.y) + gridStartPosition;
 }
 
+/// <summary>
+/// Calculates the grid position from screen coordinates.
+/// </summary>
+/// <param name="screen_position">The position on the screen to convert. (eg. 124, -331)</param>
+/// <returns>The converted grid position. (eg.1, 4).</returns>
 sf::Vector2f Grid::get_grid_position_from_screen_position(sf::Vector2f screen_position) {
 	sf::Vector2f gridStartPosition(64.f, 18.f);
 	sf::Vector2f offset(16.f, 6.f);
