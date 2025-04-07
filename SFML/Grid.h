@@ -26,6 +26,7 @@ private:
 	sf::Texture blockTexture;
 
 	std::unique_ptr<Block> grid[6][12];
+	std::unique_ptr<Block> new_grid_line[6];
 
 	Block* main_block;
 	Block* child_block;
@@ -53,6 +54,9 @@ private:
 
 	void pushdown_block();
 	void check_blocks();
+	void player_blocks_finished();
+	void pushup_blocks();
+	void spawn_bottom_row();
 
 	// input
 	bool input_left;

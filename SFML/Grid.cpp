@@ -113,7 +113,119 @@ void Grid::check_blocks()
 	}
 
 	if (main_block == nullptr && child_block == nullptr) {
-		this->start_round();
+		this->player_blocks_finished();
+	}
+}
+
+void Grid::player_blocks_finished()
+{
+	this->spawn_bottom_row();
+	this->pushup_blocks();
+	this->start_round();
+}
+
+void Grid::pushup_blocks()
+{
+	for (int i = 0; i < 6; ++i) {
+		for (int j = 0; j < 12; ++j) {
+			if (grid[i][j] != nullptr) {
+				
+				if (j - 1 < 0) {
+					// delete block instead
+					grid[i][j].reset();
+					continue;
+				}
+
+				grid[i][j]->move_block(sf::Vector2f(0.f, -1.f));
+				grid[i][j - 1] = std::move(grid[i][j]);
+			}
+		}
+	}
+
+	for (int i = 0; i < 6; ++i) {
+		grid[i][11] = std::move(new_grid_line[i]);
+	}
+}
+
+void Grid::spawn_bottom_row()
+{
+	// clear the new_grid_line array
+	for (int i = 0; i < 6; ++i) {
+		new_grid_line[i].reset();
+	}
+
+	BLOCK_TYPE types[6] = {};
+
+	for (int i = 0; i < 6; ++i) {
+		std::unordered_set<BLOCK_TYPE> invalid_block_types;
+
+		// check left block, right block, and above for possible block types. if any block is 
+		// DEFAULT or BOMB, keep going until we reach a possible face block type.
+
+		// check left
+		if (i != 0) { // don't need to check if its 0, cause its the leftmost
+			for (int j = 1; j < 5; ++j) {
+
+				if (i - j < 0)
+					break; // reached end of possibilities
+
+				if (types[i - j] != BLOCK_TYPE::DEFAULT && types[i - j] != BLOCK_TYPE::BOMB) {
+					// remove type from possible block types
+					invalid_block_types.insert(types[i - j]);
+					break; // removed one already, stop here.
+				}
+			}
+		}
+
+		// check right
+		if (i != 5) { // don't need to check if its 6, cause its rightmost
+			for (int j = 1; j < 5; ++j) {
+
+				if (i + j > 5)
+					break; // reached end of possibilities
+
+				if (types[i + j] != BLOCK_TYPE::DEFAULT && types[i + j] != BLOCK_TYPE::BOMB) {
+					// remove type from possible block types
+					invalid_block_types.insert(types[i + j]);
+					break; // removed one already, stop here.
+				}
+			}
+		}
+
+		// check above
+		for (int j = 11; j > 0; --j) {
+
+			if (grid[i][j] != nullptr) {
+				if (grid[i][j]->get_block_type() != BLOCK_TYPE::DEFAULT && grid[i][j]->get_block_type() != BLOCK_TYPE::BOMB) {
+					invalid_block_types.insert(grid[i][j]->get_block_type());
+					break;
+				}
+			}
+		}
+
+		std::vector<BLOCK_TYPE> valid_block_types = {
+			BLOCK_TYPE::DEFAULT,
+			BLOCK_TYPE::BOMB,
+			BLOCK_TYPE::PENGUIN,
+			BLOCK_TYPE::BIRD,
+			BLOCK_TYPE::SEAL
+		};
+
+		std::vector<BLOCK_TYPE> blocks_to_choose_from;
+		for (BLOCK_TYPE type : valid_block_types) {
+			if (invalid_block_types.find(type) == invalid_block_types.end()) {
+				blocks_to_choose_from.push_back(type);
+			}
+		}
+
+		// we have decided our blocks to be able to pick from. now let's randomize from the results.
+		types[i] = blocks_to_choose_from[get_random_int_range(0, blocks_to_choose_from.size() - 1)];
+	}
+
+	for (int i = 0; i < 6; ++i) {
+		auto block = std::make_unique<Block>(types[i], Grid::get_screen_position_from_grid_position(sf::Vector2f(i, 11)));
+		block->setPositionLocked(true);
+		new_grid_line[i] = std::move(block);
 	}
 }
 
@@ -172,6 +284,7 @@ void Grid::pollEvent(sf::Event event) {
 		case sf::Keyboard::Q:
 		case sf::Keyboard::LControl:
 			input_rotate_left = true;
+			break;
 		default:
 			break;
 		}
