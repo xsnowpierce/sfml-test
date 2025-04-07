@@ -68,11 +68,10 @@ void Grid::start_round() {
 }
 
 void Grid::pushdown_block() {
-
-	// make sure blocks that can't move are locked
-	//this->check_blocks();
-
-	// since we just verified, we can assume that the blocks can move down
+	/* check blocks before moving to make sure that if there is a block below another, 
+		the block below will be able to be locked before the block above it moves down.
+	*/ 
+	this->check_blocks();
 	if (main_block != nullptr && main_block->getPositionLocked() == false) {
 		main_block->push_down();
 	}
@@ -80,27 +79,7 @@ void Grid::pushdown_block() {
 		child_block->push_down();
 	}
 
-
-	/*
-	for (int x = 0; x < grid_bounds_x; ++x) {
-		for (int y = grid_bounds_y - 1; y >= 0; --y) {
-			auto& block = grid[x][y];
-			if (block && !block->getPositionLocked()) {
-				int newY = y + 1;
-				if (newY < grid_bounds_y && !grid[x][newY]) {
-					grid[x][newY] = std::move(block);
-					grid[x][y] = nullptr;
-					grid[x][newY]->push_down();
-				}
-				else {
-					block->setPositionLocked(true);
-				}
-			}
-		}
-	}
-	*/
-
-	// check to see if blocks can be made locked or not
+	// check blocks again so that after each pushdown_block attempt, all the blocks that can be locked are locked.
 	this->check_blocks();
 }
 
@@ -145,7 +124,8 @@ void Grid::update() {
 
 	input_left = false;
 	input_right = false;
-	input_rotate = false;
+	input_rotate_right = false;
+	input_rotate_left = false;
 
 	for (int x = 0; x < grid_bounds_x; ++x) {
 		for (int y = 0; y < grid_bounds_y; ++y) {
@@ -153,19 +133,7 @@ void Grid::update() {
 		}
 	}
 
-	std::cout << "-------" << std::endl;
-	for (int i = 0; i < 12; ++i) {
-		for (int j = 0; j < 6; ++j) {
-			if (grid[j][i] != nullptr) {
-				std::cout << Block::get_type_as_int(grid[j][i]->get_block_type()) << " ";
-			}
-			else {
-				std::cout << 0 << " ";
-			}
-		}
-		std::cout << std::endl;
-	}
-	std::cout << "-------" << std::endl;
+	//this->print_debug_array();
 
 	float increment = time_until_pushdown_increment;
 	if (input_down || main_block == nullptr || child_block == nullptr) increment *= 3;
@@ -199,8 +167,11 @@ void Grid::pollEvent(sf::Event event) {
 			break;
 		case sf::Keyboard::E:
 		case sf::Keyboard::Space:
-			input_rotate = true;
+			input_rotate_right = true;
 			break;
+		case sf::Keyboard::Q:
+		case sf::Keyboard::LControl:
+			input_rotate_left = true;
 		default:
 			break;
 		}
@@ -238,9 +209,111 @@ void Grid::query_inputs() {
 		child_block->move_block(1, 0);
 	}
 
-	if (input_rotate) {
-
+	if (input_rotate_right) {
+		// check for valid rotate direction
+		this->rotate_block(1);
 	}
+
+	else if (input_rotate_left) {
+		this->rotate_block(-1);
+	}
+}
+
+sf::Vector2f Grid::get_next_child_rotate_position(int direction, sf::Vector2f current_offset)
+{
+	if (current_offset == sf::Vector2f(1.f, 0.f)) {
+		// right of main block
+		if (direction == 1) {
+			return sf::Vector2f(0.f, 1.f); // go down
+		}
+		else if (direction == -1) {
+			return sf::Vector2f(0.f, -1.f); // go up
+		}
+	}
+	else if (current_offset == sf::Vector2f(0.f, 1.f)) {
+		// below main block
+		if (direction == 1) {
+			return sf::Vector2f(-1.f, 0.f); // go left
+		}
+		else if (direction == -1) {
+			return sf::Vector2f(1.f, 0.f); // go right
+		}
+	}
+	else if (current_offset == sf::Vector2f(-1.f, 0.f)) {
+		// left of main block
+		if (direction == 1) {
+			return sf::Vector2f(0.f, -1.f); // go up
+		}
+		else if (direction == -1) {
+			return sf::Vector2f(0.f, 1.f); // go down
+		}
+	}
+	else if (current_offset == sf::Vector2f(0.f, -1.f)) {
+		// above main block
+		if (direction == 1) {
+			return sf::Vector2f(1.f, 0.f); // go right
+		}
+		else if (direction == -1) {
+			return sf::Vector2f(-1.f, 0.f); // go left
+		}
+	}
+
+	std::cout << "Error rotating, given ("
+		<< current_offset.x << ", " << current_offset.y << ")" << std::endl;
+
+	return sf::Vector2f(1.f, 0.f); // default to right
+}
+
+
+void Grid::rotate_block(int direction)
+{
+	sf::Vector2f current_child_offset(this->child_block->get_current_grid_position() - this->main_block->get_current_grid_position());
+	current_child_offset.y = current_child_offset.y;
+	
+	bool found_location = false;
+	std::cout << "----------\nAttemping to rotate block in direction (" << std::to_string(direction) << ") from " << std::to_string(current_child_offset.x) << ", " << std::to_string(current_child_offset.y) << std::endl;
+	while (!found_location) {
+		current_child_offset = this->get_next_child_rotate_position(direction, current_child_offset);
+		std::cout << "attempting to choose: " << std::to_string(current_child_offset.x) << ", " << std::to_string(current_child_offset.y) << "... ";
+
+		sf::Vector2i target_position(this->main_block->get_current_grid_position() + sf::Vector2f(current_child_offset.x, current_child_offset.y));
+
+		if (target_position.x < 0 || target_position.x == Grid::grid_bounds_x || grid[target_position.x][target_position.y] != nullptr) {
+			// location has block or target is out of bounds, continue
+			std::cout << "invalid." << std::endl;
+		}
+		else {
+			found_location = true;
+			std::cout << "valid." << std::endl;
+		}
+	}
+
+	std::cout << "chose position: " << std::to_string(current_child_offset.x) << ", " << std::to_string(current_child_offset.y) << std::endl;
+
+
+	// can assume that current_child_offset has been changed to reflect the next possible position
+	sf::Vector2f reset_position(Grid::get_screen_position_from_grid_position(this->main_block->get_current_grid_position()));
+	this->child_block->set_position(reset_position);
+	this->child_block->move_block(current_child_offset);
+}
+
+void Grid::print_debug_array()
+{
+	std::string debug;
+	debug.append("-------\n");
+	for (int i = 0; i < 12; ++i) {
+		for (int j = 0; j < 6; ++j) {
+			if (grid[j][i] != nullptr) {
+				debug.append(std::to_string(Block::get_type_as_int(grid[j][i]->get_block_type())) + " ");
+			}
+			else {
+				debug.append(std::to_string(0) + " ");
+			}
+		}
+		debug.append("\n");
+	}
+	debug.append("-------\n");
+	std::cout << debug;
 }
 
 sf::Vector2f Grid::get_screen_position_from_grid_position(sf::Vector2f grid_position) {

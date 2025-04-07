@@ -42,6 +42,14 @@ private:
 	const float time_until_pushdown = 0.5f;
 	float current_time_until_pushdown = 0.5f;
 	const float time_until_pushdown_increment = 0.01666666666f;
+	int current_rotation_index = 0;
+
+	std::vector<sf::Vector2f> rotation_offsets = {
+		sf::Vector2f(-1, 0), // 0° (left of main block)
+		sf::Vector2f(0, 1),  // 90° (below)
+		sf::Vector2f(1, 0),  // 180° (right)
+		sf::Vector2f(0, -1), // 270° (above)
+	};
 
 	void pushdown_block();
 	void check_blocks();
@@ -49,10 +57,15 @@ private:
 	// input
 	bool input_left;
 	bool input_right;
-	bool input_rotate;
+	bool input_rotate_right;
+	bool input_rotate_left;
 	bool input_down;
 
 	void query_inputs();
+	sf::Vector2f get_next_child_rotate_position(int direction, sf::Vector2f current_offset);
+	void rotate_block(int direction);
+
+	void print_debug_array();
 public:
 	Grid();
 	~Grid();

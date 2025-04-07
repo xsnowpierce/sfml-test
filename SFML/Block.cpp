@@ -41,10 +41,20 @@ void Block::move_block(int x, int y)
 	this->grid_position = Grid::get_grid_position_from_screen_position(this->sprite.getPosition());
 }
 
+void Block::move_block(sf::Vector2f move)
+{
+	this->move_block(move.x, move.y);
+}
+
 void Block::set_position(float x, float y)
 {
 	this->sprite.setPosition(x, y);
 	this->grid_position = Grid::get_grid_position_from_screen_position(this->sprite.getPosition());
+}
+
+void Block::set_position(sf::Vector2f position)
+{
+	this->set_position(position.x, position.y);
 }
 
 void Block::update()

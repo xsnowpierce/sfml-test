@@ -14,7 +14,9 @@ private:
 public:
 	void push_down();
 	void move_block(int x, int y);
+	void move_block(sf::Vector2f move);
 	void set_position(float x, float y);
+	void set_position(sf::Vector2f position);
 	void update();
 	void render(sf::RenderTarget &target);
 	Block(Block::BLOCK_TYPE type, sf::Vector2f position);
