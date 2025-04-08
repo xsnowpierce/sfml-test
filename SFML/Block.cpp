@@ -25,7 +25,8 @@ sf::IntRect Block::get_texture_bounds_from_enum(BLOCK_TYPE type)
 void Block::initSprite()
 {
 	this->sprite.setTexture(texture);
-	this->sprite.setTextureRect(this->get_texture_bounds_from_enum(this->block_type));
+	spriteSheetCoordinate = this->get_texture_bounds_from_enum(this->block_type);
+	this->sprite.setTextureRect(spriteSheetCoordinate);
 }
 
 void Block::push_down()
@@ -59,6 +60,19 @@ void Block::set_position(sf::Vector2f position)
 
 void Block::update()
 {
+	if (is_scheduled_to_delete) {
+		if (flashTimer.getElapsedTime().asMilliseconds() >= 200) {
+			use_deletion_red_flash = !use_deletion_red_flash;
+			flashTimer.restart();
+		}
+	}
+
+	if (use_deletion_red_flash) {
+		//std::cout << "Use deletion" << std::endl;
+		sprite.setTextureRect(sf::IntRect(32, 0, 16, 16));
+	}
+	else
+		sprite.setTextureRect(spriteSheetCoordinate);
 }
 
 void Block::render(sf::RenderTarget& target)
@@ -72,6 +86,8 @@ Block::Block(BLOCK_TYPE type, sf::Vector2f position)
 	this->initTexture();
 	this->initSprite();
 	this->set_position(position.x, position.y);
+	this->use_deletion_red_flash = false;
+	this->is_scheduled_to_delete = false;
 }
 
 Block::~Block()
@@ -96,6 +112,16 @@ void Block::setPositionLocked(bool lockPosition)
 BLOCK_TYPE Block::get_block_type()
 {
 	return this->block_type;
+}
+
+void Block::setPartOfMatch(bool partOfMatch)
+{
+	this->is_part_of_match = partOfMatch;
+}
+
+bool Block::getPartOfMatch()
+{
+	return this->is_part_of_match;
 }
 
 void Block::initTexture()

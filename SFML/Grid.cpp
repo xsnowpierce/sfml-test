@@ -93,7 +93,7 @@ void Grid::start_round() {
 
 	if (main_block == nullptr or child_block == nullptr) {
 		std::cout << "Game lost." << std::endl;
-		this->current_game_state == Grid::GAME_STATE::GAME_END;
+		this->current_game_state = Grid::GAME_STATE::GAME_END;
 		return;
 	}
 }
@@ -120,7 +120,6 @@ void Grid::pushdown_block() {
 
 /// <summary>
 /// Checks the current status of the main and child block as to whether they should be locked in position.
-/// If both blocks have been locked, this function will instead set the game_state to SPAWNING_NEW_BOTTOM_ROW.
 /// </summary>
 void Grid::check_blocks()
 {
@@ -149,10 +148,6 @@ void Grid::check_blocks()
 		if (child_block->getPositionLocked()) {
 			child_block = nullptr;
 		}
-	}
-
-	if (main_block == nullptr && child_block == nullptr) {
-		current_game_state = Grid::GAME_STATE::SPAWNING_NEW_BOTTOM_ROW;
 	}
 }
 
@@ -263,7 +258,7 @@ void Grid::spawn_bottom_row()
 	}
 
 	for (int i = 0; i < 6; ++i) {
-		auto block = std::make_unique<Block>(types[i], Grid::get_screen_position_from_grid_position(sf::Vector2f(i, 11)));
+		auto block = std::make_unique<Block>(types[i], Grid::get_screen_position_from_grid_position(sf::Vector2f(i, 11.f)));
 		block->setPositionLocked(true);
 		new_grid_line[i] = std::move(block);
 	}
@@ -283,7 +278,9 @@ void Grid::update() {
 	}
 
 	//this->print_debug_array();
-	std::cout << current_game_state << std::endl;
+	//std::cout << current_game_state << std::endl;
+
+	std::vector<Block*> matched_blocks;
 
 	if (current_game_state == Grid::GAME_STATE::NEW_ROUND) {
 
@@ -294,6 +291,12 @@ void Grid::update() {
 	}
 
 	else if (current_game_state == Grid::GAME_STATE::PLAYER_BLOCK_FALLING) {
+
+		if (main_block == nullptr && child_block == nullptr) {
+			current_game_state = Grid::GAME_STATE::MATCH_CHECK;
+			return;
+		}
+
 		float increment = time_until_pushdown_increment;
 		if (input_down || main_block == nullptr || child_block == nullptr) increment *= 3;
 
@@ -303,12 +306,128 @@ void Grid::update() {
 			pushdown_block();
 		}
 	}
+	
+
+	else if (current_game_state == Grid::GAME_STATE::MATCH_CHECK) {
+		std::cout << "Started match detection." << std::endl;
+
+		// reset the timer for deleting blocks here
+		current_block_deletion_wait_time = block_deletion_wait_time;
+
+		matched_blocks = this->find_matches();
+
+		std::cout << "Blocks in match: " << std::to_string(matched_blocks.size()) << std::endl;
+
+		if (matched_blocks.size() > 0) {
+			// we have matches, deal with them
+
+			// set the blocks to be flashing
+			for (Block* block : matched_blocks) {
+				block->is_scheduled_to_delete = true;
+				block->setPartOfMatch(true);
+			}
+
+			// delete the blocks
+			this->current_game_state = Grid::GAME_STATE::MATCH_BLOCK_DELETION;
+		}
+		else
+			// finished checking for matches, move on
+			this->current_game_state = Grid::GAME_STATE::SPAWNING_NEW_BOTTOM_ROW;
+	}
+
+	else if (current_game_state == Grid::GAME_STATE::MATCH_BLOCK_DELETION) {
+		std::cout << "Started block deletion." << std::endl;
+
+		// Wait a little bit for visual clarity for the player
+		if (current_block_deletion_wait_time > 0.f) {
+			current_block_deletion_wait_time -= single_frame_value;
+			return;
+		}
+
+		// waiting time is up, delete blocks
+		for (int y = 0; y < 12; ++y) {
+			for (int x = 0; x < 6; ++x) {
+				// Check if the block exists and if its scheduled for deletion
+				if (grid[x][y] != nullptr && grid[x][y]->is_scheduled_to_delete) {
+					std::cout << "Deleting block at: " << x << ", " << y << std::endl;
+
+					// If block type is DEFAULT or BOMB, add to the score
+					if (grid[x][y]->get_block_type() == BLOCK_TYPE::DEFAULT || grid[x][y]->get_block_type() == BLOCK_TYPE::BOMB) {
+						current_player_score++;
+					}
+
+					// delete block
+					grid[x][y].reset();
+				}
+			}
+		}
+
+		this->current_game_state = Grid::GAME_STATE::MATCH_BLOCK_FALL;
+	}
+
+
+	else if (current_game_state == Grid::GAME_STATE::MATCH_BLOCK_FALL) {
+		std::cout << "Started making blocks fall." << std::endl;
+		// delay a little bit between each call to this block for visual clarity to the player.
+		if (current_block_fall_wait_time > 0.f) {
+			current_block_fall_wait_time -= single_frame_value;
+			//std::cout << current_block_fall_wait_time << std::endl;
+			return;
+		}
+
+		// detect which blocks need to fall ONE BLOCK and add to a list.
+		std::vector<Block*> blockFallList;
+			// loop from the bottom right to the bottom left, then increase a row higher and repeat.
+			// if any of the blocks looped over is nullptr, then get all the blocks above and add them to the list.
+			// if they're already in the list, ignore them, as we only want blocks to move down one grid cell at a time.
+
+		// loop from bottom right to bottom left, then go up a grid cell row
+		for (int y = 11; y > 0; y--) {
+			for (int x = 5; x > 0; x--) {
+				if (grid[x][y] == nullptr) {
+					
+					// get all the blocks above and add to list
+					for (int i = 1; i < 11; i++) {
+						if (grid[x][y - i] != nullptr) {
+
+							// check if the list already has this element
+							if (std::find(blockFallList.begin(), blockFallList.end(), grid[x][y - i].get()) == blockFallList.end()) {
+								continue; // block has element, continue on
+							}
+
+							// add block at this position to list
+							blockFallList.push_back(grid[x][y - i].get());
+						}
+					}
+				}
+			}
+		}
+
+
+		// make those blocks fall one block.
+		if (!blockFallList.empty()) {
+			for (Block* block : blockFallList) {
+				block->move_block(sf::Vector2f(0.f, 1.f));
+				grid[(int)block->get_current_grid_position().x][(int)block->get_current_grid_position().y + 1]
+					= std::move(grid[(int)block->get_current_grid_position().x][(int)block->get_current_grid_position().y]);
+			}
+
+			// let the loop repeat until there are no blocks left to fall.
+			current_block_fall_wait_time = block_fall_wait_time;
+		}
+		else {
+			// no blocks were left to fall.
+			// 
+			// now that all blocks have been updated and moved, check for matches again for a chain
+			this->current_game_state = Grid::GAME_STATE::MATCH_CHECK;
+		}
+	}
 
 	else if (current_game_state == Grid::GAME_STATE::SPAWNING_NEW_BOTTOM_ROW) {
-
+		std::cout << "Spawning new row." << std::endl;
 		if (current_blocks_locked_waiting_time > 0.f) {
 			current_blocks_locked_waiting_time -= single_frame_value;
-			std::cout << current_blocks_locked_waiting_time << std::endl;
+			//std::cout << current_blocks_locked_waiting_time << std::endl;
 			return;
 		}
 
@@ -317,6 +436,7 @@ void Grid::update() {
 	}
 
 	else if (current_game_state == Grid::GAME_STATE::PUSHING_UP_BLOCKS) {
+		std::cout << "Pushing up blocks." << std::endl;
 		this->pushup_blocks();
 		this->current_game_state = Grid::GAME_STATE::NEW_ROUND;
 	}
@@ -519,6 +639,61 @@ void Grid::print_debug_array()
 	}
 	debug.append("-------\n");
 	std::cout << debug;
+}
+
+std::vector<Block*> Grid::find_matches()
+{
+	std::vector<Block*> matched_blocks;
+
+	std::pair<int, int> directions[2] = {
+		{1, 0},  // RIGHT
+		{0, 1}   // DOWN
+	};
+
+	for (int y = 0; y < 12; ++y) {
+		for (int x = 0; x < 6; ++x) {
+			Block* block = grid[x][y].get();
+			if (!block) continue;
+
+			BLOCK_TYPE type = block->get_block_type();
+			if (type == BLOCK_TYPE::DEFAULT || type == BLOCK_TYPE::BOMB)
+				continue;
+
+			for (std::pair<int, int> direction : directions) {
+				int directional_x = direction.first;  // x-direction change (1 for right, 0 for no change)
+				int directional_y = direction.second; // y-direction change (1 for down, 0 for no change)
+
+				int current_x = x + directional_x;  // Start from next block in the direction
+				int current_y = y + directional_y;  // Same as above, move in y-direction
+
+				std::vector<Block*> in_between;  // Store blocks in-between start and match
+
+				while (current_x >= 0 && current_y >= 0 && current_x < 6 && current_y < 12) {
+					Block* current_block = grid[current_x][current_y].get();
+					if (!current_block) break;
+
+					BLOCK_TYPE current_type = current_block->get_block_type();
+					if (current_type == BLOCK_TYPE::DEFAULT || current_type == BLOCK_TYPE::BOMB) {
+						in_between.push_back(current_block);
+						current_x += directional_x;  // Move further in the same direction
+						current_y += directional_y;  // Same as above for y-direction
+						continue;
+					}
+					else if (current_type == type) {
+						// Found a match, add start, in-between, and end blocks
+						matched_blocks.push_back(block);  // Starting block
+						matched_blocks.insert(matched_blocks.end(), in_between.begin(), in_between.end());
+						matched_blocks.push_back(current_block);  // End matching block
+						break;
+					}
+					else {
+						break;  // If types don't match, stop searching further
+					}
+				}
+			}
+		}
+	}
+	return matched_blocks;
 }
 
 /// <summary>

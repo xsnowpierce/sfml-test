@@ -24,6 +24,9 @@ private:
 	enum GAME_STATE {
 		NEW_ROUND,
 		PLAYER_BLOCK_FALLING,
+		MATCH_CHECK,
+		MATCH_BLOCK_DELETION,
+		MATCH_BLOCK_FALL,
 		SPAWNING_NEW_BOTTOM_ROW,
 		PUSHING_UP_BLOCKS,
 		GAME_END
@@ -45,6 +48,8 @@ private:
 	Block* main_block;
 	Block* child_block;
 
+	int current_player_score;
+
 	void initBackgroundTexture();
 	void initBackgroundSprite();
 
@@ -62,6 +67,12 @@ private:
 
 	float blocks_locked_waiting_time = 0.2f;
 	float current_blocks_locked_waiting_time;
+
+	float block_deletion_wait_time = 0.3f;
+	float current_block_deletion_wait_time;
+
+	float block_fall_wait_time = 0.2f;
+	float current_block_fall_wait_time;
 
 	std::vector<sf::Vector2f> rotation_offsets = {
 		sf::Vector2f(-1, 0), // 0° (left of main block)
@@ -87,6 +98,8 @@ private:
 	void rotate_block(int direction);
 
 	void print_debug_array();
+
+	std::vector<Block*> find_matches();
 public:
 	Grid();
 	~Grid();
