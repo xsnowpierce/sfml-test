@@ -367,72 +367,77 @@ void Grid::update() {
 
 
 	else if (current_game_state == Grid::GAME_STATE::MATCH_BLOCK_FALL) {
-		std::cout << "Started making blocks fall." << std::endl;
-		// delay a little bit between each call to this block for visual clarity to the player.
+		
+
 		if (current_block_fall_wait_time > 0.f) {
 			current_block_fall_wait_time -= single_frame_value;
-			//std::cout << current_block_fall_wait_time << std::endl;
 			return;
 		}
 
-		// detect which blocks need to fall ONE BLOCK and add to a list.
-		std::vector<Block*> blockFallList;
-			// loop from the bottom right to the bottom left, then increase a row higher and repeat.
-			// if any of the blocks looped over is nullptr, then get all the blocks above and add them to the list.
-			// if they're already in the list, ignore them, as we only want blocks to move down one grid cell at a time.
+		std::cout << "Started making blocks fall." << std::endl;
 
-		// loop from bottom right to bottom left, then go up a grid cell row
+		int blocks_to_fall = 0;
 		for (int y = 11; y > 0; y--) {
+
 			for (int x = 5; x > 0; x--) {
+
 				if (grid[x][y] == nullptr) {
-					
-					// get all the blocks above and add to list
-					for (int i = 1; i < 11; i++) {
-						if (grid[x][y - i] != nullptr) {
 
-							// check if the list already has this element
-							if (std::find(blockFallList.begin(), blockFallList.end(), grid[x][y - i].get()) == blockFallList.end()) {
-								continue; // block has element, continue on
-							}
-
-							// add block at this position to list
-							blockFallList.push_back(grid[x][y - i].get());
+					for (int i = y; i > 0; i--) {
+						if (grid[x][i] != nullptr){
+							grid[x][i]->is_scheduled_to_fall = true;
+							blocks_to_fall++;
 						}
 					}
 				}
 			}
 		}
 
+		current_block_fall_wait_time = block_fall_wait_time;
 
-		// make those blocks fall one block.
-		if (!blockFallList.empty()) {
-			for (Block* block : blockFallList) {
-				block->move_block(sf::Vector2f(0.f, 1.f));
-				grid[(int)block->get_current_grid_position().x][(int)block->get_current_grid_position().y + 1]
-					= std::move(grid[(int)block->get_current_grid_position().x][(int)block->get_current_grid_position().y]);
+		if (blocks_to_fall > 0) {
+			for (int x = 5; x > 0; x--) {
+				for (int y = 10; y > 0; y--) { // start at 10 cause blocks at y=11 can't fall
+					if (grid[x][y] != nullptr && grid[x][y]->is_scheduled_to_fall) {
+						if (grid[x][y + 1] == nullptr) {
+
+							grid[x][y]->move_block(sf::Vector2f(0, 1));
+							grid[x][y]->is_scheduled_to_fall = false;
+							grid[x][y + 1] = std::move(grid[x][y]);
+
+						}
+					}
+				}
 			}
-
-			// let the loop repeat until there are no blocks left to fall.
-			current_block_fall_wait_time = block_fall_wait_time;
 		}
 		else {
-			// no blocks were left to fall.
-			// 
-			// now that all blocks have been updated and moved, check for matches again for a chain
-			this->current_game_state = Grid::GAME_STATE::MATCH_CHECK;
+			this->current_game_state = Grid::GAME_STATE::MATCH_ATTEMPT_STARFALL;
 		}
 	}
 
+	else if (current_game_state == Grid::GAME_STATE::MATCH_ATTEMPT_STARFALL) {
+		std::cout << "Attemping operation starfall." << std::endl;
+		this->current_game_state = Grid::GAME_STATE::MATCH_CHECK;
+	}
+
 	else if (current_game_state == Grid::GAME_STATE::SPAWNING_NEW_BOTTOM_ROW) {
-		std::cout << "Spawning new row." << std::endl;
 		if (current_blocks_locked_waiting_time > 0.f) {
 			current_blocks_locked_waiting_time -= single_frame_value;
 			//std::cout << current_blocks_locked_waiting_time << std::endl;
 			return;
 		}
 
-		this->spawn_bottom_row();
-		this->current_game_state = Grid::GAME_STATE::PUSHING_UP_BLOCKS;
+		if (current_rounds_to_spawn_new_row == 0) {
+			std::cout << "Spawning new row." << std::endl;
+			this->spawn_bottom_row();
+			this->current_rounds_to_spawn_new_row = rounds_required_to_spawn_new_row;
+			this->current_game_state = Grid::GAME_STATE::PUSHING_UP_BLOCKS;
+		}
+		else {
+			std::cout << "Rounds required to spawn new row: " << std::to_string(current_rounds_to_spawn_new_row) << std::endl;
+			current_rounds_to_spawn_new_row--;
+			this->current_game_state = Grid::GAME_STATE::NEW_ROUND;
+		}
 	}
 
 	else if (current_game_state == Grid::GAME_STATE::PUSHING_UP_BLOCKS) {
@@ -592,25 +597,18 @@ void Grid::rotate_block(int direction)
 	current_child_offset.y = current_child_offset.y;
 	
 	bool found_location = false;
-	std::cout << "----------\nAttemping to rotate block in direction (" << std::to_string(direction) << ") from " << std::to_string(current_child_offset.x) << ", " << std::to_string(current_child_offset.y) << std::endl;
 	while (!found_location) {
 		current_child_offset = this->get_next_child_rotate_position(direction, current_child_offset);
-		std::cout << "attempting to choose: " << std::to_string(current_child_offset.x) << ", " << std::to_string(current_child_offset.y) << "... ";
-
+		
 		sf::Vector2i target_position(this->main_block->get_current_grid_position() + sf::Vector2f(current_child_offset.x, current_child_offset.y));
 
 		if (target_position.x < 0 || target_position.x == Grid::grid_bounds_x || grid[target_position.x][target_position.y] != nullptr) {
 			// location has block or target is out of bounds, continue
-			std::cout << "invalid." << std::endl;
 		}
 		else {
 			found_location = true;
-			std::cout << "valid." << std::endl;
 		}
 	}
-
-	std::cout << "chose position: " << std::to_string(current_child_offset.x) << ", " << std::to_string(current_child_offset.y) << std::endl;
-
 
 	// can assume that current_child_offset has been changed to reflect the next possible position
 	sf::Vector2f reset_position(Grid::get_screen_position_from_grid_position(this->main_block->get_current_grid_position()));

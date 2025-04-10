@@ -27,6 +27,7 @@ private:
 		MATCH_CHECK,
 		MATCH_BLOCK_DELETION,
 		MATCH_BLOCK_FALL,
+		MATCH_ATTEMPT_STARFALL,
 		SPAWNING_NEW_BOTTOM_ROW,
 		PUSHING_UP_BLOCKS,
 		GAME_END
@@ -71,8 +72,11 @@ private:
 	float block_deletion_wait_time = 0.3f;
 	float current_block_deletion_wait_time;
 
-	float block_fall_wait_time = 0.2f;
+	float block_fall_wait_time = 0.1f;
 	float current_block_fall_wait_time;
+
+	int rounds_required_to_spawn_new_row = 4;
+	int current_rounds_to_spawn_new_row = 4;
 
 	std::vector<sf::Vector2f> rotation_offsets = {
 		sf::Vector2f(-1, 0), // 0° (left of main block)
