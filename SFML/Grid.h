@@ -58,6 +58,8 @@ private:
 	BLOCK_TYPE pick_random_block(bool other_block_is_default);
 	Block* spawn_block(BLOCK_TYPE type, sf::Vector2f grid_spawn_position, bool isLocked);
 
+	int current_match_count = 0;
+
 	int get_random_int_range(int min, int max);
 
 	const float time_until_pushdown = 0.5f;
@@ -103,7 +105,7 @@ private:
 
 	void print_debug_array();
 
-	std::vector<Block*> find_matches();
+	std::vector<Block*> find_matches(int &match_count);
 public:
 	Grid();
 	~Grid();

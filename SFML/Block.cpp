@@ -29,6 +29,41 @@ void Block::initSprite()
 	this->sprite.setTextureRect(spriteSheetCoordinate);
 }
 
+void Block::animateSprite()
+{
+	if(!is_player_falling_block 
+		|| block_type == BLOCK_TYPE::DEFAULT 
+		|| block_type == BLOCK_TYPE::BOMB 
+		|| block_type == BLOCK_TYPE::EMPTY){
+		sprite.setTextureRect(spriteSheetCoordinate);
+		return;
+	}
+	
+	if (currentAnimationFrameTimer > 0.f) {
+		currentAnimationFrameTimer -= single_frame_value;
+		return;
+	}
+
+	currentAnimationFrameTimer = spriteAnimationTimer;
+
+	sf::IntRect box = sf::IntRect(get_texture_bounds_from_enum(block_type));
+	if (currentFrame == 0) {
+		
+		box.left = 32;
+		
+	}
+	else if (currentFrame == 1) {
+		box.left = 48;
+	}
+
+	sprite.setTextureRect(box);
+
+	currentFrame++;
+	if (currentFrame > 1) {
+		currentFrame = 0;
+	}
+}
+
 void Block::push_down()
 {
 	this->sprite.move(sf::Vector2f(0, 16.f));
@@ -72,7 +107,7 @@ void Block::update()
 		sprite.setTextureRect(sf::IntRect(32, 0, 16, 16));
 	}
 	else
-		sprite.setTextureRect(spriteSheetCoordinate);
+		animateSprite();
 }
 
 void Block::render(sf::RenderTarget& target)
@@ -107,6 +142,7 @@ bool Block::getPositionLocked()
 void Block::setPositionLocked(bool lockPosition)
 {
 	this->is_position_locked = lockPosition;
+	this->is_player_falling_block = false;
 }
 
 BLOCK_TYPE Block::get_block_type()

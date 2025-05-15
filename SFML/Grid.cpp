@@ -89,6 +89,9 @@ void Grid::start_round() {
 	this->main_block = spawn_block(type1, { 2.f, 0.f }, false);
 	this->child_block = spawn_block(type2, { 3.f, 0.f }, false);
 
+	this->main_block->is_player_falling_block = true;
+	this->child_block->is_player_falling_block = true;
+
 	this->current_game_state = Grid::GAME_STATE::PLAYER_BLOCK_FALLING;
 
 	if (main_block == nullptr or child_block == nullptr) {
@@ -287,6 +290,7 @@ void Grid::update() {
 		// reset variables
 		current_time_until_pushdown = time_until_pushdown;
 		current_blocks_locked_waiting_time = blocks_locked_waiting_time;
+		this->current_match_count = 0;
 		this->start_round();
 	}
 
@@ -314,7 +318,7 @@ void Grid::update() {
 		// reset the timer for deleting blocks here
 		current_block_deletion_wait_time = block_deletion_wait_time;
 
-		matched_blocks = this->find_matches();
+		matched_blocks = this->find_matches(this->current_match_count);
 
 		std::cout << "Blocks in match: " << std::to_string(matched_blocks.size()) << std::endl;
 
@@ -336,7 +340,9 @@ void Grid::update() {
 	}
 
 	else if (current_game_state == Grid::GAME_STATE::MATCH_BLOCK_DELETION) {
-		std::cout << "Started block deletion." << std::endl;
+		if (current_block_deletion_wait_time == block_deletion_wait_time) {
+			std::cout << "Started block deletion." << std::endl;
+		}
 
 		// Wait a little bit for visual clarity for the player
 		if (current_block_deletion_wait_time > 0.f) {
@@ -377,10 +383,9 @@ void Grid::update() {
 		std::cout << "Started making blocks fall." << std::endl;
 
 		int blocks_to_fall = 0;
-		for (int y = 11; y > 0; y--) {
+		for (int y = 11; y >= 0; y--) {
 
-			for (int x = 5; x > 0; x--) {
-
+			for (int x = 5; x >= 0; x--) {
 				if (grid[x][y] == nullptr) {
 
 					for (int i = y; i > 0; i--) {
@@ -396,8 +401,8 @@ void Grid::update() {
 		current_block_fall_wait_time = block_fall_wait_time;
 
 		if (blocks_to_fall > 0) {
-			for (int x = 5; x > 0; x--) {
-				for (int y = 10; y > 0; y--) { // start at 10 cause blocks at y=11 can't fall
+			for (int x = 5; x >= 0; x--) {
+				for (int y = 10; y >= 0; y--) { // start at 10 cause blocks at y=11 can't fall
 					if (grid[x][y] != nullptr && grid[x][y]->is_scheduled_to_fall) {
 						if (grid[x][y + 1] == nullptr) {
 
@@ -416,7 +421,8 @@ void Grid::update() {
 	}
 
 	else if (current_game_state == Grid::GAME_STATE::MATCH_ATTEMPT_STARFALL) {
-		std::cout << "Attemping operation starfall." << std::endl;
+		std::cout << "Player achieved " << std::to_string(current_match_count) << " matches this round." << std::endl;
+
 		this->current_game_state = Grid::GAME_STATE::MATCH_CHECK;
 	}
 
@@ -639,7 +645,7 @@ void Grid::print_debug_array()
 	std::cout << debug;
 }
 
-std::vector<Block*> Grid::find_matches()
+std::vector<Block*> Grid::find_matches(int& match_count)
 {
 	std::vector<Block*> matched_blocks;
 
@@ -661,10 +667,10 @@ std::vector<Block*> Grid::find_matches()
 				int directional_x = direction.first;  // x-direction change (1 for right, 0 for no change)
 				int directional_y = direction.second; // y-direction change (1 for down, 0 for no change)
 
-				int current_x = x + directional_x;  // Start from next block in the direction
-				int current_y = y + directional_y;  // Same as above, move in y-direction
+				int current_x = x + directional_x;
+				int current_y = y + directional_y;
 
-				std::vector<Block*> in_between;  // Store blocks in-between start and match
+				std::vector<Block*> in_between;
 
 				while (current_x >= 0 && current_y >= 0 && current_x < 6 && current_y < 12) {
 					Block* current_block = grid[current_x][current_y].get();
@@ -682,7 +688,27 @@ std::vector<Block*> Grid::find_matches()
 						matched_blocks.push_back(block);  // Starting block
 						matched_blocks.insert(matched_blocks.end(), in_between.begin(), in_between.end());
 						matched_blocks.push_back(current_block);  // End matching block
-						break;
+						match_count++;
+
+						// check for trailing blocks at the end
+						while (true) {
+							current_x += directional_x;
+							current_y += directional_y;
+
+							if (current_x < 0 || current_x >= 6 || current_y < 0 || current_y >= 12)
+								break;
+
+							Block* trailing_block = grid[current_x][current_y].get();
+							if (!trailing_block) break;
+
+							if (trailing_block->get_block_type() == block->get_block_type()) {
+								matched_blocks.push_back(trailing_block);
+							}
+							else {
+								break;
+							}
+						}
+
 					}
 					else {
 						break;  // If types don't match, stop searching further
@@ -693,6 +719,7 @@ std::vector<Block*> Grid::find_matches()
 	}
 	return matched_blocks;
 }
+
 
 /// <summary>
 /// Calculates the screen coordinate position from a given grid position.

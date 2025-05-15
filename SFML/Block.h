@@ -15,6 +15,14 @@ private:
 	sf::Clock flashTimer;
 	bool use_deletion_red_flash;
 	sf::IntRect spriteSheetCoordinate;
+	void animateSprite();
+
+	float spriteAnimationTimer = 0.3f;
+	float currentAnimationFrameTimer;
+
+	int currentFrame = 0;
+
+	const float single_frame_value = 0.01666666666f;
 public:
 	void push_down();
 	void move_block(int x, int y);
@@ -33,6 +41,8 @@ public:
 	bool getPartOfMatch();
 	bool is_scheduled_to_fall = false;
 	bool is_scheduled_to_delete = false;
+
+	bool is_player_falling_block = false;
 
 	static sf::Texture texture;
 	static void initTexture();
